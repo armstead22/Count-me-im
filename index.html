@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Count Me In</title>
+<meta name="description" content="Pick a plan with your friends. Add ideas and times, everyone taps what works, and the winner becomes the plan. No sign-up.">
+<meta property="og:title" content="Count Me In">
+<meta property="og:description" content="Vote on what to do and when. Tap what works for you. No sign-up.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#FFD447">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+
+<script>
+// ---------------------------------------------------------------------------
+// SETUP: paste your two Supabase values between the quotes.
+// Both are meant to be public. Never put the "secret" / "service_role" key here.
+// Until these are filled in, the app runs in practice mode on one device.
+window.CMI_CONFIG = { supabaseUrl: "https://qhwnpgtkigwydkiniwus.supabase.co", supabaseKey: "sb_publishable_a9917BCa36wb4kmtj2U1Mg_PhUgdTqh" };
+// ---------------------------------------------------------------------------
+</script>
+<style>
+
+/* Layout: one phone-width column. The plan "ticket" is the single loud object; everything else is quiet lists. */
+:root {
+  --bg: #EEF0F7; --surface: #FFFFFF; --ink: #1A1D3A; --ink-2: #555A7D; --line: #D7DBEA;
+  --accent: #D42450; --accent-ink: #FFFFFF; --accent-soft: #FCE6EC;
+  --ticket: #FFD447; --ticket-ink: #23200F; --ticket-line: #23200F55;
+  --p1: #2F6FED; --p2: #0E9F6E; --p3: #C2410C; --p4: #7C3AED; --p5: #0E7490; --p6: #BE185D; --p-ink: #FFFFFF;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11132A; --surface: #1B1E3F; --ink: #ECEEFF; --ink-2: #A3A8D0; --line: #2E3260;
+    --accent: #FF6B8B; --accent-ink: #21060E; --accent-soft: #3A1C36;
+    --ticket: #FFD447; --ticket-ink: #23200F; --ticket-line: #23200F55;
+    --p1: #7FA8FF; --p2: #4ADE9F; --p3: #FB923C; --p4: #B79CFF; --p5: #5CD3E6; --p6: #F58BBB; --p-ink: #11132A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11132A; --surface: #1B1E3F; --ink: #ECEEFF; --ink-2: #A3A8D0; --line: #2E3260;
+  --accent: #FF6B8B; --accent-ink: #21060E; --accent-soft: #3A1C36;
+  --ticket: #FFD447; --ticket-ink: #23200F; --ticket-line: #23200F55;
+  --p1: #7FA8FF; --p2: #4ADE9F; --p3: #FB923C; --p4: #B79CFF; --p5: #5CD3E6; --p6: #F58BBB; --p-ink: #11132A;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.45; padding-inline: 16px; padding-block: 20px 96px; }
+#app { max-width: 540px; margin-inline: auto; display: flex; flex-direction: column; gap: 22px; }
+#plan { display: flex; flex-direction: column; gap: 22px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: 1.75rem; line-height: 1.12; font-weight: 800; }
+h2 { font-size: 1.2rem; font-weight: 800; }
+p { margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.muted { color: var(--ink-2); }
+.small { font-size: 0.875rem; }
+.eyebrow { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-2); }
+
+/* buttons and inputs */
+.btn { border: 0; border-radius: 999px; padding: 11px 18px; font-weight: 700; background: var(--accent); color: var(--accent-ink); min-height: 44px; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.quiet { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn.dark { background: var(--ticket-ink); color: var(--ticket); }
+.btn.onticket { background: transparent; color: var(--ticket-ink); border: 1.5px solid var(--ticket-ink); }
+.linkbtn { background: none; border: 0; padding: 6px 4px; color: var(--ink-2); font-weight: 600; font-size: 0.875rem; text-decoration: underline; text-underline-offset: 3px; }
+.field { width: 100%; min-width: 0; background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 11px 14px; min-height: 46px; color: var(--ink); }
+.field::placeholder { color: var(--ink-2); opacity: 0.8; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row > .field { flex: 1; }
+.wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* header */
+.top { display: flex; flex-direction: column; gap: 6px; }
+.titleline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.titleline h1 { min-width: 0; overflow-wrap: anywhere; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px; border: 1.5px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--p2); }
+.badge.local .dot { background: var(--p3); }
+.badge.view .dot { background: var(--ink-2); }
+.notice { background: var(--surface); border: 1.5px dashed var(--line); border-radius: var(--radius); padding: 12px 14px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.notice p { flex: 1 1 220px; min-width: 0; }
+
+/* hero (no plan yet) */
+.hero { display: flex; flex-direction: column; gap: 18px; }
+.hero h1 { font-size: 2rem; }
+.hero form { display: flex; flex-direction: column; gap: 8px; }
+.hero label { font-weight: 700; }
+.steps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; color: var(--ink-2); }
+
+/* the ticket */
+.ticket { background: var(--ticket); color: var(--ticket-ink); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; position: relative; }
+.ticket .eyebrow { color: var(--ticket-ink); opacity: 0.75; }
+.ticket-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.admit { font-family: var(--display); font-weight: 800; font-size: 0.95rem; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; border: 2px solid var(--ticket-ink); border-radius: 6px; padding: 1px 8px; }
+.ticket-fields { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: baseline; }
+.ticket-fields dt { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; opacity: 0.75; }
+.ticket-fields dd { margin: 0; font-family: var(--display); font-weight: 800; font-size: 1.25rem; line-height: 1.15; min-width: 0; overflow-wrap: anywhere; }
+.ticket-fields dd.plain { font-family: var(--body); font-weight: 600; font-size: 1rem; }
+.stub { border-top: 2px dashed var(--ticket-line); padding-top: 14px; position: relative; display: flex; flex-direction: column; gap: 10px; }
+.stub::before, .stub::after { content: ""; position: absolute; top: -11px; width: 20px; height: 20px; border-radius: 50%; background: var(--bg); }
+.stub::before { left: -28px; } .stub::after { right: -28px; }
+.ticket select { width: 100%; min-width: 0; background: #FFFFFF99; border: 1.5px solid var(--ticket-ink); border-radius: 10px; padding: 9px 10px; min-height: 44px; color: var(--ticket-ink); }
+.ticket label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; opacity: 0.8; display: flex; flex-direction: column; gap: 4px; }
+.guide { background: var(--surface); border-radius: var(--radius); padding: 16px; border: 1.5px solid var(--line); }
+
+/* sections */
+section { display: flex; flex-direction: column; gap: 10px; }
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+
+/* people chips */
+.chip { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 13px 5px 5px; min-height: 42px; font-weight: 600; max-width: 100%; }
+.chip span.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.chip .x { font-weight: 700; color: var(--accent); margin-left: 2px; }
+.av { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: var(--p-ink); flex: none; }
+.av.sm { width: 22px; height: 22px; font-size: 0.66rem; }
+.c1 { background: var(--p1); } .c2 { background: var(--p2); } .c3 { background: var(--p3); } .c4 { background: var(--p4); } .c5 { background: var(--p5); } .c6 { background: var(--p6); }
+
+/* vote rows */
+.vote { width: 100%; text-align: left; display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 12px 14px; min-height: 60px; }
+.vote[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.vote .tick { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ink-2); display: flex; align-items: center; justify-content: center; flex: none; }
+.vote[aria-pressed="true"] .tick { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.vote .tick svg { display: none; } .vote[aria-pressed="true"] .tick svg { display: block; }
+.vote .what { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.vote .count { font-family: var(--display); font-weight: 800; font-size: 1.3rem; font-variant-numeric: tabular-nums; min-width: 1.2ch; text-align: right; }
+.vote .meta { grid-column: 2 / 4; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--ink-2); }
+.vote .who { display: flex; gap: 3px; flex-wrap: wrap; }
+.vote.static { cursor: default; }
+.vote.removing { grid-template-columns: 1fr auto; }
+.lead { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; background: var(--ticket); color: var(--ticket-ink); border-radius: 5px; padding: 1px 6px; }
+.tally { display: block; color: var(--ink-2); }
+.rm { border: 1.5px solid var(--accent); color: var(--accent); background: transparent; border-radius: 999px; padding: 6px 12px; font-weight: 700; min-height: 40px; }
+.sugg { border: 1.5px dashed var(--line); background: transparent; color: var(--ink-2); border-radius: 999px; padding: 6px 12px; font-weight: 600; font-size: 0.875rem; min-height: 38px; }
+
+.foot { border-top: 1.5px solid var(--line); padding-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+#toast { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); margin-inline: auto; max-width: 508px; background: var(--ink); color: var(--bg); border-radius: 12px; padding: 12px 14px; font-weight: 600; text-align: center; z-index: 5; }
+#copybox { width: 100%; min-height: 110px; background: #FFFFFF99; border: 1.5px solid var(--ticket-ink); border-radius: 10px; padding: 10px; color: var(--ticket-ink); font: inherit; }
+@media (prefers-reduced-motion: no-preference) {
+  .vote, .chip { transition: background-color .12s ease, border-color .12s ease; }
+}
+
+/* standalone page additions */
+html { -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(96px + env(safe-area-inset-bottom, 0px)); }
+a { color: inherit; }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.invite { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.recent { display: flex; flex-direction: column; gap: 8px; }
+.recent a { display: flex; justify-content: space-between; gap: 12px; align-items: center; background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px; min-height: 48px; font-weight: 700; text-decoration: none; }
+.recent a span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.recent a span:last-child { color: var(--ink-2); font-weight: 600; font-size: 0.875rem; white-space: nowrap; }
+.badge.off .dot { background: var(--accent); }
+</style>
+</head>
+<body>
+<main id="app">
+  <p class="muted" id="loading">Loading…</p>
+
+  <div class="hero" id="missing" hidden>
+    <p class="eyebrow">Count Me In</p>
+    <h1 id="missing-title">This plan link doesn't work.</h1>
+    <p class="muted" id="missing-text">Check that the whole link was copied, or ask whoever sent it to share it again.</p>
+    <div><a class="btn" href="./">Start a new plan</a></div>
+  </div>
+
+  <div class="hero" id="hero" hidden>
+    <p class="eyebrow">Count Me In · hangout planner</p>
+    <h1>Pick a plan without the 40-message group chat.</h1>
+    <p class="muted">Add a few ideas and some times, then send one link to your group. Everyone taps what they're up for, and the winner becomes the plan.</p>
+
+    <form id="start-form" autocomplete="off">
+      <label for="start-title">What are you planning?</label>
+      <div class="row">
+        <input class="field" id="start-title" maxlength="60" placeholder="Friday night, Maya's birthday" enterkeyhint="go">
+        <button class="btn" id="start-btn" type="submit">Start</button>
+      </div>
+      <p class="small muted" id="start-status"></p>
+    </form>
+    <div><a class="linkbtn" href="?demo=1">See an example plan first</a></div>
+
+    <div class="recent" id="recent" hidden>
+      <h2>Your plans on this phone</h2>
+      <div class="recent" id="recent-list"></div>
+    </div>
+
+    <div class="ticket" aria-label="Example of a finished plan">
+      <div class="ticket-head"><span class="eyebrow">Example of a finished plan</span><span class="admit">Admit 4</span></div>
+      <dl class="ticket-fields">
+        <dt>What</dt><dd>Bowling + tacos</dd>
+        <dt>When</dt><dd>Sat · 7:00 PM</dd>
+      </dl>
+      <div class="stub"><p class="small">In: Alex, Sam, Jordan, Priya</p></div>
+    </div>
+
+    <ol class="steps small">
+      <li>Start a plan and add ideas and times.</li>
+      <li>Send the link to your group. No app, no sign-up.</li>
+      <li>Everyone taps what works. Lock in the winner and copy it to the chat.</li>
+    </ol>
+  </div>
+
+  <div id="plan" hidden>
+    <header class="top">
+      <div class="row" style="justify-content:space-between">
+        <a class="eyebrow" href="./" style="text-decoration:none">Count Me In</a>
+        <span class="badge" id="mode-badge"><span class="dot"></span><span id="mode-text">Live</span></span>
+      </div>
+      <div class="titleline" id="title-view">
+        <h1 id="plan-title"></h1>
+        <button class="linkbtn" id="rename-btn" type="button">Rename</button>
+      </div>
+      <form class="row" id="title-form" hidden autocomplete="off">
+        <input class="field" id="title-input" maxlength="60" aria-label="Plan name">
+        <button class="btn" type="submit">Save</button>
+      </form>
+      <p class="small muted" id="summary-line"></p>
+    </header>
+
+    <div class="invite" id="invite" hidden>
+      <p class="small"><strong>Send this plan to your group.</strong> Anyone who opens the link can add their name and vote.</p>
+      <div class="wrap">
+        <button class="btn" id="share-btn" type="button">Share the link</button>
+        <button class="btn quiet" id="copy-link-btn" type="button">Copy link</button>
+      </div>
+      <input class="field" id="link-box" readonly hidden aria-label="Plan link">
+    </div>
+
+    <div class="notice" id="notice" hidden><p class="small" id="notice-text"></p><a class="btn quiet" id="notice-btn" href="./" hidden>Start my own</a></div>
+
+    <div id="result"></div>
+
+    <section aria-labelledby="h-people">
+      <div class="sec-head"><h2 id="h-people">Who's coming</h2><button class="linkbtn" id="edit-people" type="button">Edit</button></div>
+      <p class="small muted" id="people-hint"></p>
+      <div class="wrap" id="people-list"></div>
+      <form class="row" id="person-form" autocomplete="off">
+        <input class="field" id="person-input" maxlength="24" placeholder="Add your name" aria-label="Add a person" enterkeyhint="done">
+        <button class="btn quiet" type="submit">Add</button>
+      </form>
+    </section>
+
+    <section aria-labelledby="h-ideas">
+      <div class="sec-head"><h2 id="h-ideas">What should we do?</h2><button class="linkbtn" id="edit-ideas" type="button">Edit</button></div>
+      <ul class="list" id="idea-list"></ul>
+      <form class="row" id="idea-form" autocomplete="off">
+        <input class="field" id="idea-input" maxlength="80" placeholder="Add an idea" aria-label="Add an idea" enterkeyhint="done">
+        <button class="btn quiet" type="submit">Add</button>
+      </form>
+      <div class="wrap" id="suggestions" aria-label="Quick ideas"></div>
+    </section>
+
+    <section aria-labelledby="h-times">
+      <div class="sec-head"><h2 id="h-times">When works?</h2><button class="linkbtn" id="edit-times" type="button">Edit</button></div>
+      <ul class="list" id="time-list"></ul>
+      <form class="row" id="time-form" autocomplete="off">
+        <input class="field" id="time-input" type="datetime-local" aria-label="Add a date and time">
+        <button class="btn quiet" type="submit">Add</button>
+      </form>
+    </section>
+
+    <footer class="foot">
+      <p class="small muted">Tap every idea and every time you'd be happy with. The most taps wins.</p>
+      <p class="small" id="foot-new"><a href="./">Planning something else? Start a new plan.</a></p>
+      <div id="foot-reset" hidden><button class="linkbtn" id="reset-btn" type="button">Erase this practice plan</button></div>
+    </footer>
+  </div>
+</main>
+<div id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+'use strict';
+
+const LIMITS = { title: 60, idea: 80, name: 24, people: 30, ideas: 30, times: 20 };
+const COLS = ['plan', 'people', 'ideas', 'times', 'votes'];
+const QUICK_IDEAS = ['Bowling', 'Movie night', 'Board games', 'Mini golf', 'Picnic in the park', 'Trivia night', 'Cook dinner together', 'Hike', 'Karaoke', 'Arcade'];
+const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------- setup and which screen this is
+const CFG = (() => { const c = window.CMI_CONFIG || {}; return { url: String(c.supabaseUrl || '').trim().replace(/\/+$/, ''), key: String(c.supabaseKey || '').trim() }; })();
+const CONFIGURED = /^https?:\/\/[a-z0-9.:-]+$/i.test(CFG.url) && CFG.key.length > 20;
+const ROUTE = (() => {
+  const q = new URLSearchParams(location.search), p = q.get('p');
+  if (q.has('demo')) return { kind: 'demo' };
+  if (!p) return { kind: 'home' };
+  if (p === 'local' || !CONFIGURED) return { kind: 'local' };
+  return { kind: 'live', id: p };
+})();
+const ME_KEY = 'cmi.me.' + (ROUTE.id || ROUTE.kind);
+
+// ---------------------------------------------------------------- state
+const cols = { plan: {}, people: {}, ideas: {}, times: {}, votes: {} };
+const ui = { ready: false, canWrite: true, missing: false, loadError: false, offline: false,
+             editing: { people: false, ideas: false, times: false },
+             locking: false, renaming: false, resetArmed: false, copyText: null, me: null };
+let store = null;
+
+const ls = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage is optional */ } },
+  del(k) { try { localStorage.removeItem(k); } catch { /* storage is optional */ } },
+};
+ui.me = ls.get(ME_KEY);
+
+// ---------------------------------------------------------------- tiny DOM helpers (all user text goes through textContent)
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'text') el.textContent = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+function svg(markup, w, hgt, cls) {            // markup is built from numbers only, never from user text
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  el.setAttribute('viewBox', `0 0 ${w} ${hgt}`); el.setAttribute('width', w); el.setAttribute('height', hgt);
+  el.setAttribute('aria-hidden', 'true'); if (cls) el.setAttribute('class', cls);
+  el.innerHTML = markup; return el;
+}
+function tallyMarks(n) {                        // classic five-bar gate tally, capped so a row never overflows
+  const shown = Math.min(n, 15); if (!shown) return null;
+  let m = '', x = 2;
+  for (let done = 0; done < shown;) {
+    const group = Math.min(5, shown - done), bars = Math.min(4, group);
+    for (let i = 0; i < bars; i++) m += `<line x1="${x + i * 5}" y1="2" x2="${x + i * 5}" y2="16"/>`;
+    if (group === 5) m += `<line x1="${x - 2}" y1="13" x2="${x + 17}" y2="5"/>`;
+    done += group; x += 28;
+  }
+  return svg(`<g stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none">${m}</g>`, x - 6, 18, 'tally');
+}
+const tickIcon = () => svg('<path d="M3 8.5l3.2 3.2L13 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>', 16, 16);
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 4200);
+}
+
+// ---------------------------------------------------------------- pure logic
+const clip = (s, n) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, n);
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const byCreated = (o) => Object.entries(o).map(([id, b]) => ({ id, ...b })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || (a.id < b.id ? -1 : 1));
+const initials = (name) => { const p = clip(name, 24).split(' ').filter(Boolean); return ((p[0] || '?')[0] + (p[1] ? p[1][0] : '')).toUpperCase(); };
+function colorClass(id) { let n = 0; for (const ch of id) n = (n * 31 + ch.charCodeAt(0)) >>> 0; return 'c' + (n % 6 + 1); }
+
+function parseWhen(when) {                      // "YYYY-MM-DDTHH:MM" as wall-clock time, same for every viewer
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(when || ''));
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null;
+}
+function formatWhen(when) {
+  const d = parseWhen(when); if (!d || isNaN(d)) return 'Unknown time';
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' +
+         d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+/** Who voted for each item. Only people still on the list count. */
+function tallyVotes(items, people, votes, kind) {
+  return items.map((item) => ({ item, voters: people.filter((p) => ((votes[p.id] || {})[kind] || {})[item.id] === true) }));
+}
+function leadersOf(tallied) {
+  const max = Math.max(0, ...tallied.map((t) => t.voters.length));
+  return max === 0 ? [] : tallied.filter((t) => t.voters.length === max);
+}
+function view() {
+  const plan = cols.plan.main || null;
+  const people = byCreated(cols.people);
+  const ideas = byCreated(cols.ideas);
+  const times = byCreated(cols.times).sort((a, b) => String(a.when).localeCompare(String(b.when)));
+  const ideaTally = tallyVotes(ideas, people, cols.votes, 'ideas');
+  const timeTally = tallyVotes(times, people, cols.votes, 'times');
+  const hasVoted = (p) => ideaTally.some((t) => t.voters.includes(p)) || timeTally.some((t) => t.voters.includes(p));
+  return { plan, people, ideas, times, ideaTally, timeTally, ideaLead: leadersOf(ideaTally), timeLead: leadersOf(timeTally),
+           waiting: people.filter((p) => !hasVoted(p)), me: people.find((p) => p.id === ui.me) || null };
+}
+
+// ---------------------------------------------------------------- storage: the shared database, or this device for practice and the example
+async function rpc(fn, args) {
+  let res;
+  try {
+    res = await fetch(`${CFG.url}/rest/v1/rpc/${fn}`, { method: 'POST',
+      headers: { apikey: CFG.key, Authorization: 'Bearer ' + CFG.key, 'Content-Type': 'application/json' }, body: JSON.stringify(args) });
+  } catch { const e = new Error('offline'); e.offline = true; throw e; }
+  if (!res.ok) {
+    let body = null; try { body = await res.json(); } catch { /* not JSON */ }
+    const e = new Error((body && body.message) || 'HTTP ' + res.status);
+    e.friendly = !!(body && body.code === 'P0001');      // messages our own database functions wrote for people
+    throw e;
+  }
+  return res.json();
+}
+function onWriteError(e) {
+  toast(e && e.friendly ? e.message : e && e.offline ? "You're offline. That change wasn't saved." : "That didn't save. Try again in a moment.");
+}
+function applyOp(d, path, body) {
+  const [col, id] = path.split('/');
+  if (col === 'plan') d.meta = body;
+  else if (body === null) delete d[col][id];
+  else d[col][id] = body;
+}
+function makeRemoteStore(planId) {
+  let rev = -1, server = null, timer = 0, lastChange = Date.now();
+  const pending = [], queues = {};
+  // What the screen shows = the last answer from the server + our changes still on their way.
+  function project() {
+    if (!server) return;
+    const d = JSON.parse(JSON.stringify(server));
+    for (const c of ['people', 'ideas', 'times', 'votes']) if (!d[c] || typeof d[c] !== 'object') d[c] = {};
+    for (const op of pending) applyOp(d, op.path, op.body);
+    cols.plan = d.meta ? { main: d.meta } : {};
+    for (const c of ['people', 'ideas', 'times', 'votes']) cols[c] = d[c];
+    scheduleRender();
+  }
+  function accept(res) {
+    if (!res || !res.data || res.rev < rev) return;
+    if (res.rev !== rev) lastChange = Date.now();
+    rev = res.rev; server = res.data; project();
+  }
+  function schedule() {
+    clearTimeout(timer);
+    if (document.hidden || ui.missing) return;
+    timer = setTimeout(poll, Date.now() - lastChange > 180000 ? 12000 : 4000);   // ease off when a plan goes quiet
+  }
+  async function poll() {
+    try {
+      const res = await rpc('cmi_get', { p_id: planId, p_rev: rev });
+      if (res === null) { ui.missing = true; }
+      else { accept(res); if (ui.offline) { ui.offline = false; } }
+      ui.ready = true;
+    } catch (e) {
+      if (!ui.ready) ui.loadError = true; else ui.offline = true;
+    }
+    scheduleRender(); schedule();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); else clearTimeout(timer); });
+  window.addEventListener('online', poll);
+  return {
+    start: poll,
+    // One write at a time per item; the body is computed when its turn comes, from what the screen shows.
+    write(path, bodyFn) {
+      const run = async () => {
+        const op = { path, body: bodyFn() }; pending.push(op); project();
+        const [col, id] = path.split('/');
+        try {
+          const res = await rpc('cmi_write', { p_id: planId, p_path: col === 'plan' ? ['meta'] : [col, id], p_value: op.body });
+          pending.splice(pending.indexOf(op), 1); accept(res); project(); ui.offline = false;
+        } catch (e) { pending.splice(pending.indexOf(op), 1); project(); throw e; }
+      };
+      const p = (queues[path] || Promise.resolve()).then(run).catch(onWriteError);
+      queues[path] = p; return p;
+    },
+  };
+}
+function makeLocalStore(persistKey) {
+  if (persistKey) { try { const saved = JSON.parse(ls.get(persistKey) || 'null'); if (saved) for (const c of COLS) cols[c] = saved[c] || {}; } catch { /* start empty */ } }
+  return {
+    start() { ui.ready = true; scheduleRender(); },
+    write(path, bodyFn) {
+      const [col, id] = path.split('/'); const body = bodyFn();
+      const next = { ...cols[col] }; if (body === null) delete next[id]; else next[id] = body;
+      cols[col] = next; if (persistKey) ls.set(persistKey, JSON.stringify(cols)); scheduleRender();
+      return Promise.resolve();
+    },
+  };
+}
+function remember(id, title) {                       // "Your plans on this phone"
+  let list = []; try { list = JSON.parse(ls.get('cmi.recent') || '[]'); } catch { /* start fresh */ }
+  if (!Array.isArray(list)) list = [];
+  list = [{ id, title, at: Date.now() }, ...list.filter((x) => x && x.id !== id)].slice(0, 8);
+  ls.set('cmi.recent', JSON.stringify(list));
+}
+
+// ---------------------------------------------------------------- actions
+const canAct = () => ui.ready && !!store;
+function setMe(id) { ui.me = id; if (id) ls.set(ME_KEY, id); else ls.del(ME_KEY); scheduleRender(); }
+function savePlan(patch) { return store.write('plan/main', () => ({ title: 'Our plan', createdAt: Date.now(), locked: null, ...(cols.plan.main || {}), ...patch })); }
+
+async function startPlan(title) {
+  title = clip(title, LIMITS.title) || 'Our plan';
+  if (!CONFIGURED) {
+    ls.set('cmi.local', JSON.stringify({ plan: { main: { title, createdAt: Date.now(), locked: null } }, people: {}, ideas: {}, times: {}, votes: {} }));
+    ls.del('cmi.me.local'); location.href = '?p=local'; return;
+  }
+  const btn = $('start-btn'), status = $('start-status');
+  btn.disabled = true; status.textContent = 'Starting your plan…';
+  try {
+    const res = await rpc('cmi_create', { p_title: title });
+    remember(res.id, title); location.href = '?p=' + encodeURIComponent(res.id);
+  } catch (e) {
+    btn.disabled = false;
+    status.textContent = e.friendly ? e.message : e.offline ? "You're offline. Connect and try again." : "Couldn't start a plan. Try again in a moment.";
+  }
+}
+function addPerson(name) {
+  name = clip(name, LIMITS.name); if (!canAct() || !name) return null;
+  const people = byCreated(cols.people);
+  if (people.length >= LIMITS.people) { toast(`A plan holds up to ${LIMITS.people} people.`); return null; }
+  if (people.some((p) => p.name.toLowerCase() === name.toLowerCase())) { toast(`${name} is already on the list. Tap that name to vote.`); return null; }
+  const id = newId();
+  store.write('people/' + id, () => ({ name, createdAt: Date.now() }));
+  if (!view().me) setMe(id);
+  return id;
+}
+function removePerson(id) { if (!canAct()) return; store.write('people/' + id, () => null); store.write('votes/' + id, () => null); if (ui.me === id) setMe(null); }
+function addIdea(text) {
+  text = clip(text, LIMITS.idea); if (!canAct() || !text) return false;
+  const ideas = byCreated(cols.ideas);
+  if (ideas.length >= LIMITS.ideas) { toast(`A plan holds up to ${LIMITS.ideas} ideas.`); return false; }
+  if (ideas.some((i) => i.text.toLowerCase() === text.toLowerCase())) { toast('That idea is already on the list.'); return false; }
+  store.write('ideas/' + newId(), () => ({ text, createdAt: Date.now() })); return true;
+}
+function addTime(when) {
+  if (!canAct() || !parseWhen(when)) return false;
+  when = String(when).slice(0, 16);
+  const times = byCreated(cols.times);
+  if (times.length >= LIMITS.times) { toast(`A plan holds up to ${LIMITS.times} times.`); return false; }
+  if (times.some((t) => t.when === when)) { toast('That time is already on the list.'); return false; }
+  store.write('times/' + newId(), () => ({ when, createdAt: Date.now() })); return true;
+}
+function removeItem(col, id) {
+  if (!canAct()) return;
+  store.write(col + '/' + id, () => null);
+  const locked = (cols.plan.main || {}).locked;
+  if (locked && (locked.idea === id || locked.time === id)) savePlan({ locked: null });
+}
+function toggleVote(kind, itemId) {
+  if (!canAct()) return;
+  const me = view().me;
+  if (!me) { toast('Add your name first, then tap what works for you.'); $('person-input').focus(); return; }
+  store.write('votes/' + me.id, () => {
+    const cur = cols.votes[me.id] || {};
+    const picked = { ...(cur[kind] || {}) };
+    if (picked[itemId]) delete picked[itemId]; else picked[itemId] = true;
+    return { ideas: { ...(cur.ideas || {}) }, times: { ...(cur.times || {}) }, [kind]: picked };
+  });
+}
+function loadExample() {
+  const t0 = Date.now(); let n = 0; const stamp = () => t0 + n++;
+  const day = (dow, hh) => { const d = new Date(); d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7 || 7)); const p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(hh)}:00`; };
+  const P = ['Me', 'Alex', 'Sam', 'Jordan', 'Priya'].map((name, k) => ({ id: 'p' + k, name, createdAt: stamp() }));
+  const I = ['Bowling + tacos', 'Board game night', 'Picnic in the park', 'Mini golf'].map((text, k) => ({ id: 'i' + k, text, createdAt: stamp() }));
+  const T = [day(5, 19), day(6, 14), day(6, 19)].map((when, k) => ({ id: 't' + k, when, createdAt: stamp() }));
+  const pick = [[[0, 1], [2]], [[0], [0, 2]], [[0, 3], [2]], [[1, 0], [1, 2]], [[], []]];   // Priya hasn't answered yet
+  savePlan({ title: 'Saturday hangout', createdAt: t0, example: true, locked: null });
+  for (const p of P) store.write('people/' + p.id, () => ({ name: p.name, createdAt: p.createdAt }));
+  for (const i of I) store.write('ideas/' + i.id, () => ({ text: i.text, createdAt: i.createdAt }));
+  for (const t of T) store.write('times/' + t.id, () => ({ when: t.when, createdAt: t.createdAt }));
+  P.forEach((p, k) => store.write('votes/' + p.id, () => ({
+    ideas: Object.fromEntries(pick[k][0].map((x) => [I[x].id, true])), times: Object.fromEntries(pick[k][1].map((x) => [T[x].id, true])) })));
+  ui.me = P[0].id;
+}
+
+// ---------------------------------------------------------------- rendering
+let raf = 0;
+function scheduleRender() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); }
+const avatar = (p, small) => h('span', { class: `av ${small ? 'sm ' : ''}${colorClass(p.id)}`, title: p.name, text: initials(p.name) });
+const show = (id, on) => { $(id).hidden = !on; };
+const planUrl = () => location.origin + location.pathname + '?p=' + encodeURIComponent(ROUTE.id);
+
+function renderHome() {
+  show('loading', false); show('hero', true);
+  $('start-status').textContent = CONFIGURED ? 'Free, and no sign-up. You get a link to send to your group.'
+    : "Practice mode: setup isn't finished yet, so plans stay on this device.";
+  let list = []; try { list = JSON.parse(ls.get('cmi.recent') || '[]'); } catch { /* none */ }
+  list = Array.isArray(list) && CONFIGURED ? list.filter((x) => x && /^[a-z0-9]{8,40}$/.test(x.id)) : [];
+  show('recent', list.length > 0);
+  $('recent-list').replaceChildren(...list.map((x) => h('a', { href: '?p=' + encodeURIComponent(x.id) },
+    h('span', { text: clip(x.title, LIMITS.title) || 'Our plan' }), h('span', { text: 'Open' }))));
+}
+
+function render() {
+  if (ROUTE.kind === 'home') { renderHome(); return; }
+  if (ui.loadError && !ui.ready) {
+    show('loading', false); show('missing', true);
+    $('missing-title').textContent = "Couldn't load this plan."; $('missing-text').textContent = 'Check your connection, then reload the page.';
+    return;
+  }
+  if (!ui.ready) return;
+  const v = view();
+  if (ui.missing || !v.plan) {
+    if (ROUTE.kind === 'local') { location.replace('./'); return; }
+    show('loading', false); show('plan', false); show('missing', true); return;
+  }
+  show('loading', false); show('missing', false); show('plan', true);
+  const live = ROUTE.kind === 'live', title = clip(v.plan.title, LIMITS.title) || 'Our plan';
+  if (live && ui.titleSeen !== title) { ui.titleSeen = title; remember(ROUTE.id, title); }
+  document.title = title + ' · Count Me In';
+
+  // header
+  $('mode-badge').className = 'badge' + (!live ? ' local' : ui.offline ? ' off' : '');
+  $('mode-text').textContent = ROUTE.kind === 'demo' ? 'Example' : !live ? 'Practice' : ui.offline ? 'Offline' : 'Live';
+  $('plan-title').textContent = title;
+  show('rename-btn', !ui.renaming); show('title-form', ui.renaming); show('title-view', !ui.renaming);
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  $('summary-line').textContent = `${plural(v.people.length, 'person', 'people')} · ${plural(v.ideas.length, 'idea', 'ideas')} · ${plural(v.times.length, 'time', 'times')}`;
+
+  // invite + notice
+  show('invite', live); show('share-btn', !!navigator.share);
+  $('copy-link-btn').className = navigator.share ? 'btn quiet' : 'btn';
+  const note = ROUTE.kind === 'demo' ? 'This is an example plan with made-up people. Tap around to see how voting works.'
+    : ROUTE.kind === 'local' ? "Practice mode: this plan is saved on this device only and can't be shared yet."
+    : ui.offline ? "You're offline. Changes won't save until you're back online." : '';
+  show('notice', !!note); $('notice-text').textContent = note; show('notice-btn', ROUTE.kind === 'demo');
+
+  renderResult(v); renderPeople(v); renderVotes(v, 'ideas'); renderVotes(v, 'times');
+
+  show('edit-people', v.people.length > 0); show('edit-ideas', v.ideas.length > 0); show('edit-times', v.times.length > 0);
+  for (const k of ['people', 'ideas', 'times']) $('edit-' + k).textContent = ui.editing[k] ? 'Done' : 'Edit';
+  show('foot-new', ROUTE.kind !== 'local'); show('foot-reset', ROUTE.kind === 'local');
+  $('reset-btn').textContent = ui.resetArmed ? 'Tap again to erase it' : 'Erase this practice plan';
+  $('person-input').placeholder = v.me ? 'Add another name' : 'Add your name';
+
+  const have = new Set(v.ideas.map((i) => i.text.toLowerCase()));
+  $('suggestions').replaceChildren(...QUICK_IDEAS.filter((q) => !have.has(q.toLowerCase())).slice(0, 6)
+    .map((q) => h('button', { class: 'sugg', type: 'button', text: '+ ' + q, onclick: () => addIdea(q) })));
+}
+
+function renderPeople(v) {
+  const edit = ui.editing.people;
+  $('people-hint').textContent = !v.people.length ? 'Start with your own name.'
+    : edit ? 'Tap a name to remove it.'
+    : v.me ? `Voting as ${v.me.name}. Not you? Tap your name, or add it.`
+    : 'Tap your name, or add it. Then tap everything that works for you.';
+  $('people-list').replaceChildren(...v.people.map((p) => {
+    const isMe = v.me && v.me.id === p.id;
+    return h('button', { class: 'chip', type: 'button', 'aria-pressed': edit ? null : String(!!isMe),
+      'aria-label': edit ? `Remove ${p.name}` : `Vote as ${p.name}`,
+      onclick: () => (edit ? removePerson(p.id) : setMe(p.id)) },
+      avatar(p), h('span', { class: 'nm', text: p.name }), edit ? h('span', { class: 'x', text: '×' }) : null);
+  }));
+}
+
+function renderVotes(v, kind) {
+  const tallied = kind === 'ideas' ? v.ideaTally : v.timeTally;
+  const lead = new Set((kind === 'ideas' ? v.ideaLead : v.timeLead).map((t) => t.item.id));
+  const col = kind, edit = ui.editing[kind] && ui.canWrite;
+  const list = $(kind === 'ideas' ? 'idea-list' : 'time-list');
+  if (!tallied.length) {
+    list.replaceChildren(h('li', { class: 'muted small', text: kind === 'ideas' ? 'No ideas yet. Add one, or tap a quick idea below.' : 'No times yet. Add a couple of options.' }));
+    return;
+  }
+  const mine = v.me ? ((cols.votes[v.me.id] || {})[kind] || {}) : {};
+  list.replaceChildren(...tallied.map(({ item, voters }) => {
+    const label = kind === 'ideas' ? item.text : formatWhen(item.when);
+    const n = voters.length;
+    const meta = !n ? null : h('span', { class: 'meta' }, lead.has(item.id) ? h('span', { class: 'lead', text: lead.size > 1 ? 'Tied' : 'Leading' }) : null,
+      tallyMarks(n), h('span', { class: 'who' }, voters.slice(0, 8).map((p) => avatar(p, true))));
+    if (edit) return h('li', {}, h('div', { class: 'vote static removing' }, h('span', { class: 'what', text: label }),
+      h('button', { class: 'rm', type: 'button', text: 'Remove', 'aria-label': `Remove ${label}`, onclick: () => removeItem(col, item.id) })));
+    const body = [h('span', { class: 'tick' }, tickIcon()), h('span', { class: 'what', text: label }),
+      h('span', { class: 'count', text: String(n), 'aria-label': `${n} vote${n === 1 ? '' : 's'}` }), meta];
+    return h('li', {}, ui.canWrite
+      ? h('button', { class: 'vote', type: 'button', 'aria-pressed': String(mine[item.id] === true), onclick: () => toggleVote(kind, item.id) }, body)
+      : h('div', { class: 'vote static' }, body));
+  }));
+}
+
+function names(list) { return list.map((p) => p.name).join(', '); }
+function renderResult(v) {
+  const box = $('result'); const locked = v.plan.locked;
+  const keep = { idea: ($('lock-idea') || {}).value, time: ($('lock-time') || {}).value };
+  const restore = () => { for (const k of ['idea', 'time']) { const s = $('lock-' + k); if (s && keep[k] != null && [...s.options].some((o) => o.value === keep[k])) s.value = keep[k]; } };
+  const idea = locked && v.ideas.find((i) => i.id === locked.idea);
+  if (locked && idea) {                                   // ---- the finished ticket
+    const time = v.times.find((t) => t.id === locked.time) || null;
+    const going = time ? v.timeTally.find((t) => t.item.id === time.id).voters : v.ideaTally.find((t) => t.item.id === idea.id).voters;
+    const rest = v.people.filter((p) => !going.includes(p));
+    const text = [clip(v.plan.title, LIMITS.title), `What: ${idea.text}`, `When: ${time ? formatWhen(time.when) : 'To be decided'}`,
+      `In (${going.length}): ${names(going) || 'nobody yet'}`].join('\n');
+    box.replaceChildren(h('div', { class: 'ticket' },
+      h('div', { class: 'ticket-head' }, h('span', { class: 'eyebrow', text: "It's a plan" }), h('span', { class: 'admit', text: `Admit ${going.length}` })),
+      h('dl', { class: 'ticket-fields' }, h('dt', { text: 'What' }), h('dd', { text: idea.text }),
+        h('dt', { text: 'When' }), h('dd', { text: time ? formatWhen(time.when) : 'To be decided' })),
+      h('div', { class: 'stub' },
+        h('p', { class: 'small', text: `In: ${names(going) || 'nobody yet'}` }),
+        rest.length ? h('p', { class: 'small', text: `Not in yet: ${names(rest)}` }) : null,
+        ui.copyText ? h('textarea', { id: 'copybox', readonly: true, 'aria-label': 'Plan text to copy' }, ui.copyText) : null,
+        h('div', { class: 'wrap' },
+          h('button', { class: 'btn dark', type: 'button', text: 'Copy plan for the group chat', onclick: () => copyPlan(text) }),
+          ui.canWrite ? h('button', { class: 'btn onticket', type: 'button', text: 'Reopen voting', onclick: () => { ui.copyText = null; savePlan({ locked: null }); } }) : null))));
+    return;
+  }
+  if (!v.people.length || !v.ideas.length) {              // ---- nothing to tally yet
+    box.replaceChildren(h('div', { class: 'guide' }, h('p', { class: 'eyebrow', text: 'Getting started' }),
+      h('p', { text: !v.people.length ? "Add who's coming, starting with you." : 'Now add a few ideas for what to do.' })));
+    return;
+  }
+  const leadText = (lead, fmt, none) => (!lead.length ? none : lead.length === 1 ? fmt(lead[0].item) : 'Tied: ' + lead.map((t) => fmt(t.item)).join(' / '));
+  const voted = v.people.length - v.waiting.length;
+  const stub = [h('p', { class: 'small', text: `${voted} of ${v.people.length} have voted.` + (v.waiting.length ? ` Waiting on ${names(v.waiting)}.` : ' Everyone has answered.') })];
+  if (ui.canWrite && ui.locking) {
+    const byVotes = (t) => [...t].sort((a, b) => b.voters.length - a.voters.length);
+    const sel = (id, label, opts) => h('label', {}, label, h('select', { id }, opts));
+    stub.push(
+      sel('lock-idea', 'What', byVotes(v.ideaTally).map((t) => h('option', { value: t.item.id, text: `${t.item.text} (${t.voters.length})` }))),
+      sel('lock-time', 'When', [...byVotes(v.timeTally).map((t) => h('option', { value: t.item.id, text: `${formatWhen(t.item.when)} (${t.voters.length})` })), h('option', { value: '', text: 'Decide the time later' })]),
+      h('div', { class: 'wrap' },
+        h('button', { class: 'btn dark', type: 'button', text: 'Make it the plan', onclick: () => { const i = $('lock-idea').value, t = $('lock-time').value; ui.locking = false; savePlan({ locked: { idea: i, time: t || null } }); } }),
+        h('button', { class: 'btn onticket', type: 'button', text: 'Cancel', onclick: () => { ui.locking = false; scheduleRender(); } })));
+  } else if (ui.canWrite) {
+    stub.push(h('div', {}, h('button', { class: 'btn dark', type: 'button', text: 'Lock it in', disabled: !v.ideaLead.length, onclick: () => { ui.locking = true; scheduleRender(); } })));
+  }
+  box.replaceChildren(h('div', { class: 'ticket' },
+    h('div', { class: 'ticket-head' }, h('span', { class: 'eyebrow', text: 'Leading right now' })),
+    h('dl', { class: 'ticket-fields' },
+      h('dt', { text: 'What' }), h('dd', { class: v.ideaLead.length === 1 ? null : 'plain', text: leadText(v.ideaLead, (i) => i.text, 'No votes yet') }),
+      h('dt', { text: 'When' }), h('dd', { class: v.timeLead.length === 1 ? null : 'plain', text: !v.times.length ? 'No times added' : leadText(v.timeLead, (t) => formatWhen(t.when), 'No votes yet') })),
+    h('div', { class: 'stub' }, stub)));
+  restore();
+}
+
+function copyPlan(text) {
+  const fallback = () => { ui.copyText = text; render(); const b = $('copybox'); if (b) { b.focus(); b.select(); } toast('Select the text and copy it.'); };
+  try { navigator.clipboard.writeText(text).then(() => toast('Copied. Paste it in your group chat.'), fallback); } catch { fallback(); }
+}
+
+// ---------------------------------------------------------------- wiring
+function onSubmit(formId, inputId, fn) {
+  $(formId).addEventListener('submit', (e) => { e.preventDefault(); const input = $(inputId); if (fn(input.value) !== false) input.value = ''; });
+}
+$('start-form').addEventListener('submit', (e) => { e.preventDefault(); startPlan($('start-title').value); });
+onSubmit('person-form', 'person-input', (val) => addPerson(val) !== null);
+onSubmit('idea-form', 'idea-input', (val) => addIdea(val));
+onSubmit('time-form', 'time-input', (val) => { if (!val) { toast('Pick a date and time first.'); return false; } return addTime(val); });
+$('rename-btn').addEventListener('click', () => { ui.renaming = true; render(); const i = $('title-input'); i.value = (cols.plan.main || {}).title || ''; i.focus(); i.select(); });
+$('title-form').addEventListener('submit', (e) => { e.preventDefault(); const t = clip($('title-input').value, LIMITS.title); ui.renaming = false; if (t && canAct()) savePlan({ title: t }); scheduleRender(); });
+for (const k of ['people', 'ideas', 'times']) $('edit-' + k).addEventListener('click', () => { ui.editing[k] = !ui.editing[k]; scheduleRender(); });
+$('reset-btn').addEventListener('click', () => {
+  if (ui.resetArmed) { ls.del('cmi.local'); ls.del('cmi.me.local'); location.href = './'; return; }
+  ui.resetArmed = true; scheduleRender(); setTimeout(() => { ui.resetArmed = false; scheduleRender(); }, 4000);
+});
+function copyLink() {
+  const url = planUrl();
+  const fallback = () => { const b = $('link-box'); b.hidden = false; b.value = url; b.focus(); b.select(); toast('Select the link and copy it.'); };
+  try { navigator.clipboard.writeText(url).then(() => toast('Link copied. Paste it in your group chat.'), fallback); } catch { fallback(); }
+}
+$('copy-link-btn').addEventListener('click', copyLink);
+$('share-btn').addEventListener('click', () => {
+  const title = (cols.plan.main || {}).title || 'Our plan';
+  navigator.share({ title, text: `Vote on "${title}": tap what works for you.`, url: planUrl() }).catch(() => { /* closed the share sheet */ });
+});
+
+function boot() {
+  if (ROUTE.kind === 'home') { render(); return; }
+  if (ROUTE.kind === 'live') {
+    if (!/^[a-z0-9]{8,40}$/.test(ROUTE.id)) { ui.ready = true; ui.missing = true; render(); return; }
+    store = makeRemoteStore(ROUTE.id);
+  } else store = makeLocalStore(ROUTE.kind === 'local' ? 'cmi.local' : null);
+  store.start();
+  if (ROUTE.kind === 'demo') loadExample();
+}
+boot();
+})();
+</script>
+</body>
+</html>
