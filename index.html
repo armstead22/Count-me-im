@@ -162,6 +162,14 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
 .recent a span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .recent a span:last-child { color: var(--ink-2); font-weight: 600; font-size: 0.875rem; white-space: nowrap; }
 .badge.off .dot { background: var(--accent); }
+
+/* plan details: shown once a plan is locked in */
+#details { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 16px; gap: 18px; }
+.detail { display: flex; flex-direction: column; gap: 6px; }
+.dl { font-weight: 700; }
+.chip.pick { padding: 5px 16px; }
+.chip.pick:disabled { opacity: 0.5; cursor: not-allowed; }
+#bring-list li { display: flex; gap: 8px; align-items: center; min-width: 0; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -241,6 +249,42 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
 
     <div id="result"></div>
 
+    <section id="details" hidden aria-labelledby="h-details">
+      <h2 id="h-details">Plan details</h2>
+      <div class="detail">
+        <p class="dl">Are you in?</p>
+        <p class="small muted" id="rsvp-hint"></p>
+        <div class="wrap">
+          <button class="chip pick" id="rsvp-in" type="button" aria-pressed="false">I'm in</button>
+          <button class="chip pick" id="rsvp-out" type="button" aria-pressed="false">Can't make it</button>
+        </div>
+      </div>
+      <form class="detail" id="where-form" autocomplete="off">
+        <label class="dl" for="where-input">Where</label>
+        <div class="row">
+          <input class="field" id="where-input" maxlength="80" placeholder="Address or place name" enterkeyhint="done">
+          <button class="btn quiet" type="submit">Save</button>
+        </div>
+      </form>
+      <form class="detail" id="bring-form" autocomplete="off">
+        <label class="dl" for="bring-input">Bringing something?</label>
+        <div class="row">
+          <input class="field" id="bring-input" maxlength="60" placeholder="Chips, a speaker, the cake" enterkeyhint="done">
+          <button class="btn quiet" id="bring-save" type="submit">Save</button>
+        </div>
+        <ul class="list small" id="bring-list"></ul>
+      </form>
+      <form class="detail" id="cost-form" autocomplete="off">
+        <label class="dl" for="cost-input">Splitting a cost?</label>
+        <div class="row">
+          <input class="field" id="cost-input" type="number" inputmode="decimal" min="0" max="100000" step="0.01" placeholder="Total, like 120" enterkeyhint="done">
+          <button class="btn quiet" type="submit">Save</button>
+        </div>
+        <p class="small" id="cost-line"></p>
+      </form>
+      <div class="detail" id="cal-row"><div><button class="btn quiet" id="cal-btn" type="button">Add to my calendar</button></div></div>
+    </section>
+
     <section aria-labelledby="h-people">
       <div class="sec-head"><h2 id="h-people">Who's coming</h2><button class="linkbtn" id="edit-people" type="button">Edit</button></div>
       <p class="small muted" id="people-hint"></p>
@@ -283,7 +327,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
 (() => {
 'use strict';
 
-const LIMITS = { title: 60, idea: 80, name: 24, people: 30, ideas: 30, times: 20 };
+const LIMITS = { title: 60, idea: 80, name: 24, people: 30, ideas: 30, times: 20, where: 80, bring: 60, cost: 100000 };
 const COLS = ['plan', 'people', 'ideas', 'times', 'votes'];
 const QUICK_IDEAS = ['Bowling', 'Movie night', 'Board games', 'Mini golf', 'Picnic in the park', 'Trivia night', 'Cook dinner together', 'Hike', 'Karaoke', 'Arcade'];
 const $ = (id) => document.getElementById(id);
@@ -391,6 +435,55 @@ function view() {
            waiting: people.filter((p) => !hasVoted(p)), me: people.find((p) => p.id === ui.me) || null };
 }
 
+/** A locked plan's key. An "I'm in" answer only counts for the exact idea and time it was given for. */
+const lockKey = (locked) => (locked ? `${locked.idea}|${locked.time || ''}` : '');
+const money = (n) => { try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n); } catch { return '$' + n.toFixed(2); } };
+/** Everything the finished ticket shows. Null until a plan is locked in. */
+function planFacts(v) {
+  const locked = v.plan && v.plan.locked;
+  const idea = locked && v.ideas.find((i) => i.id === locked.idea);
+  if (!locked || !idea) return null;
+  const time = v.times.find((t) => t.id === locked.time) || null;
+  const voters = (time ? v.timeTally.find((t) => t.item.id === time.id) : v.ideaTally.find((t) => t.item.id === idea.id)).voters;
+  const key = lockKey(locked);
+  const answer = (p) => { const r = (cols.votes[p.id] || {}).rsvp; return r && r.k === key && (r.v === 'in' || r.v === 'out') ? r.v : null; };
+  // Someone who voted for the winner counts as in until they say otherwise.
+  const status = (p) => answer(p) || (voters.includes(p) ? 'in' : null);
+  const going = v.people.filter((p) => status(p) === 'in');
+  const out = v.people.filter((p) => status(p) === 'out');
+  const rest = v.people.filter((p) => !status(p));
+  const bringing = v.people.filter((p) => status(p) !== 'out')
+    .map((p) => ({ person: p, text: clip((cols.votes[p.id] || {}).bring, LIMITS.bring) })).filter((b) => b.text);
+  const total = Number(v.plan.cost);
+  const cost = Number.isFinite(total) && total > 0 && total <= LIMITS.cost ? Math.round(total * 100) / 100 : 0;
+  return { idea, time, going, out, rest, bringing, cost, each: cost && going.length ? cost / going.length : 0,
+           where: clip(v.plan.where, LIMITS.where), status };
+}
+function planText(v, f) {
+  const title = clip(v.plan.title, LIMITS.title) || 'Our plan';
+  return [title, `What: ${f.idea.text}`, `When: ${f.time ? formatWhen(f.time.when) : 'To be decided'}`,
+    f.where ? `Where: ${f.where}` : null,
+    `In (${f.going.length}): ${f.going.map((p) => p.name).join(', ') || 'nobody yet'}`,
+    f.out.length ? `Can't make it: ${f.out.map((p) => p.name).join(', ')}` : null,
+    f.bringing.length ? `Bringing: ${f.bringing.map((b) => `${b.person.name} (${b.text})`).join(', ')}` : null,
+    f.cost ? `Cost: ${money(f.cost)} total` + (f.each ? `, about ${money(f.each)} each` : '') : null,
+  ].filter(Boolean).join('\n');
+}
+function calendarFile(v, f) {
+  const d = parseWhen(f.time.when), end = new Date(d.getTime() + 2 * 3600 * 1000), p = (x) => String(x).padStart(2, '0');
+  const local = (x) => `${x.getFullYear()}${p(x.getMonth() + 1)}${p(x.getDate())}T${p(x.getHours())}${p(x.getMinutes())}00`;
+  const esc = (t) => String(t).replace(/\\/g, '\\\\').replace(/([,;])/g, '\\$1').replace(/\r?\n/g, '\\n');
+  const title = clip(v.plan.title, LIMITS.title) || 'Our plan';
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Count Me In//EN', 'BEGIN:VEVENT',
+    `UID:${ROUTE.id || 'plan'}-${local(d)}@count-me-in`,
+    'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''),
+    'DTSTART:' + local(d), 'DTEND:' + local(end),
+    'SUMMARY:' + esc(`${f.idea.text} (${title})`),
+    f.where ? 'LOCATION:' + esc(f.where) : null,
+    'DESCRIPTION:' + esc(planText(v, f)),
+    'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n') + '\r\n';
+}
+
 // ---------------------------------------------------------------- storage: the shared database, or this device for practice and the example
 async function rpc(fn, args) {
   let res;
@@ -489,7 +582,7 @@ function remember(id, title) {                       // "Your plans on this phon
 
 // ---------------------------------------------------------------- actions
 const canAct = () => ui.ready && !!store;
-function setMe(id) { ui.me = id; if (id) ls.set(ME_KEY, id); else ls.del(ME_KEY); scheduleRender(); }
+function setMe(id) { ui.me = id; if (id) ls.set(ME_KEY, id); else ls.del(ME_KEY); const b = $('bring-input'); if (b) delete b.dataset.dirty; scheduleRender(); }
 function savePlan(patch) { return store.write('plan/main', () => ({ title: 'Our plan', createdAt: Date.now(), locked: null, ...(cols.plan.main || {}), ...patch })); }
 
 async function startPlan(title) {
@@ -548,9 +641,22 @@ function toggleVote(kind, itemId) {
     const cur = cols.votes[me.id] || {};
     const picked = { ...(cur[kind] || {}) };
     if (picked[itemId]) delete picked[itemId]; else picked[itemId] = true;
-    return { ideas: { ...(cur.ideas || {}) }, times: { ...(cur.times || {}) }, [kind]: picked };
+    return { ...cur, ideas: { ...(cur.ideas || {}) }, times: { ...(cur.times || {}) }, [kind]: picked };
   });
 }
+/** Change one of my own answers (am I in, what I'm bringing) without touching my votes. */
+function saveMine(patch) {
+  const me = view().me;
+  if (!canAct() || !me) { toast("Tap your name under Who's coming first."); return false; }
+  store.write('votes/' + me.id, () => {
+    const cur = cols.votes[me.id] || {};
+    const next = { ...cur, ideas: { ...(cur.ideas || {}) }, times: { ...(cur.times || {}) }, ...patch };
+    for (const k of Object.keys(next)) if (next[k] == null) delete next[k];
+    return next;
+  });
+  return true;
+}
+function setRsvp(val) { const locked = (cols.plan.main || {}).locked; if (locked) saveMine({ rsvp: { v: val, k: lockKey(locked) } }); }
 function loadExample() {
   const t0 = Date.now(); let n = 0; const stamp = () => t0 + n++;
   const day = (dow, hh) => { const d = new Date(); d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7 || 7)); const p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(hh)}:00`; };
@@ -619,7 +725,7 @@ function render() {
     : ui.offline ? "You're offline. Changes won't save until you're back online." : '';
   show('notice', !!note); $('notice-text').textContent = note; show('notice-btn', ROUTE.kind === 'demo');
 
-  renderResult(v); renderPeople(v); renderVotes(v, 'ideas'); renderVotes(v, 'times');
+  renderResult(v); renderDetails(v); renderPeople(v); renderVotes(v, 'ideas'); renderVotes(v, 'times');
 
   show('edit-people', v.people.length > 0); show('edit-ideas', v.ideas.length > 0); show('edit-times', v.times.length > 0);
   for (const k of ['people', 'ideas', 'times']) $('edit-' + k).textContent = ui.editing[k] ? 'Done' : 'Edit';
@@ -672,25 +778,45 @@ function renderVotes(v, kind) {
   }));
 }
 
+// Inputs in the details panel are kept between renders: only refresh one the person isn't using.
+function fill(id, val) { const el = $(id); if (document.activeElement !== el && !el.dataset.dirty && el.value !== val) el.value = val; }
+function renderDetails(v) {
+  const f = planFacts(v);
+  show('details', !!f); if (!f) return;
+  const mine = v.me ? f.status(v.me) : null;
+  $('rsvp-in').setAttribute('aria-pressed', String(mine === 'in')); $('rsvp-out').setAttribute('aria-pressed', String(mine === 'out'));
+  $('rsvp-in').disabled = $('rsvp-out').disabled = !v.me;
+  $('rsvp-hint').textContent = v.me ? `Answering as ${v.me.name}.` : "Tap your name under Who's coming, then answer here.";
+  fill('where-input', f.where);
+  $('bring-input').disabled = $('bring-save').disabled = !v.me;
+  fill('bring-input', v.me ? clip((cols.votes[v.me.id] || {}).bring, LIMITS.bring) : '');
+  $('bring-list').replaceChildren(...f.bringing.map((b) => h('li', {}, avatar(b.person, true), h('span', { text: `${b.person.name}: ${b.text}` }))));
+  fill('cost-input', f.cost ? String(f.cost) : '');
+  $('cost-line').textContent = !f.cost ? '' : f.each
+    ? `${money(f.cost)} split ${f.going.length} way${f.going.length === 1 ? '' : 's'} is about ${money(f.each)} each.`
+    : `${money(f.cost)} total. The split shows once someone is in.`;
+  show('cal-row', !!f.time);
+}
+
 function names(list) { return list.map((p) => p.name).join(', '); }
 function renderResult(v) {
-  const box = $('result'); const locked = v.plan.locked;
+  const box = $('result');
   const keep = { idea: ($('lock-idea') || {}).value, time: ($('lock-time') || {}).value };
   const restore = () => { for (const k of ['idea', 'time']) { const s = $('lock-' + k); if (s && keep[k] != null && [...s.options].some((o) => o.value === keep[k])) s.value = keep[k]; } };
-  const idea = locked && v.ideas.find((i) => i.id === locked.idea);
-  if (locked && idea) {                                   // ---- the finished ticket
-    const time = v.times.find((t) => t.id === locked.time) || null;
-    const going = time ? v.timeTally.find((t) => t.item.id === time.id).voters : v.ideaTally.find((t) => t.item.id === idea.id).voters;
-    const rest = v.people.filter((p) => !going.includes(p));
-    const text = [clip(v.plan.title, LIMITS.title), `What: ${idea.text}`, `When: ${time ? formatWhen(time.when) : 'To be decided'}`,
-      `In (${going.length}): ${names(going) || 'nobody yet'}`].join('\n');
+  const f = planFacts(v);
+  if (f) {                                                // ---- the finished ticket
+    const text = planText(v, f);
     box.replaceChildren(h('div', { class: 'ticket' },
-      h('div', { class: 'ticket-head' }, h('span', { class: 'eyebrow', text: "It's a plan" }), h('span', { class: 'admit', text: `Admit ${going.length}` })),
-      h('dl', { class: 'ticket-fields' }, h('dt', { text: 'What' }), h('dd', { text: idea.text }),
-        h('dt', { text: 'When' }), h('dd', { text: time ? formatWhen(time.when) : 'To be decided' })),
+      h('div', { class: 'ticket-head' }, h('span', { class: 'eyebrow', text: "It's a plan" }), h('span', { class: 'admit', text: `Admit ${f.going.length}` })),
+      h('dl', { class: 'ticket-fields' }, h('dt', { text: 'What' }), h('dd', { text: f.idea.text }),
+        h('dt', { text: 'When' }), h('dd', { text: f.time ? formatWhen(f.time.when) : 'To be decided' }),
+        f.where ? [h('dt', { text: 'Where' }), h('dd', { class: 'plain', text: f.where })] : null),
       h('div', { class: 'stub' },
-        h('p', { class: 'small', text: `In: ${names(going) || 'nobody yet'}` }),
-        rest.length ? h('p', { class: 'small', text: `Not in yet: ${names(rest)}` }) : null,
+        h('p', { class: 'small', text: `In: ${names(f.going) || 'nobody yet'}` }),
+        f.out.length ? h('p', { class: 'small', text: `Can't make it: ${names(f.out)}` }) : null,
+        f.rest.length ? h('p', { class: 'small', text: `No answer yet: ${names(f.rest)}` }) : null,
+        f.bringing.length ? h('p', { class: 'small', text: 'Bringing: ' + f.bringing.map((x) => `${x.person.name} (${x.text})`).join(', ') }) : null,
+        f.each ? h('p', { class: 'small', text: `About ${money(f.each)} each` }) : null,
         ui.copyText ? h('textarea', { id: 'copybox', readonly: true, 'aria-label': 'Plan text to copy' }, ui.copyText) : null,
         h('div', { class: 'wrap' },
           h('button', { class: 'btn dark', type: 'button', text: 'Copy plan for the group chat', onclick: () => copyPlan(text) }),
@@ -745,6 +871,32 @@ for (const k of ['people', 'ideas', 'times']) $('edit-' + k).addEventListener('c
 $('reset-btn').addEventListener('click', () => {
   if (ui.resetArmed) { ls.del('cmi.local'); ls.del('cmi.me.local'); location.href = './'; return; }
   ui.resetArmed = true; scheduleRender(); setTimeout(() => { ui.resetArmed = false; scheduleRender(); }, 4000);
+});
+for (const id of ['where-input', 'bring-input', 'cost-input']) $(id).addEventListener('input', () => { $(id).dataset.dirty = '1'; });
+$('rsvp-in').addEventListener('click', () => setRsvp('in'));
+$('rsvp-out').addEventListener('click', () => setRsvp('out'));
+$('where-form').addEventListener('submit', (e) => {
+  e.preventDefault(); if (!canAct()) return;
+  const el = $('where-input'); delete el.dataset.dirty; el.blur();
+  savePlan({ where: clip(el.value, LIMITS.where) }); toast('Saved.');
+});
+$('bring-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const el = $('bring-input'), text = clip(el.value, LIMITS.bring);
+  if (saveMine({ bring: text || null })) { delete el.dataset.dirty; el.blur(); toast(text ? 'Saved.' : 'Removed.'); }
+});
+$('cost-form').addEventListener('submit', (e) => {
+  e.preventDefault(); if (!canAct()) return;
+  const el = $('cost-input'), n = el.value.trim() === '' ? 0 : Number(el.value);
+  if (!Number.isFinite(n) || n < 0 || n > LIMITS.cost) { toast(`Enter a total between 0 and ${LIMITS.cost.toLocaleString()}.`); return; }
+  delete el.dataset.dirty; el.blur();
+  savePlan({ cost: Math.round(n * 100) / 100 }); toast(n ? 'Saved.' : 'Removed.');
+});
+$('cal-btn').addEventListener('click', () => {
+  const v = view(), f = planFacts(v); if (!f || !f.time) return;
+  const url = URL.createObjectURL(new Blob([calendarFile(v, f)], { type: 'text/calendar' }));
+  const a = h('a', { href: url, download: 'count-me-in.ics' }); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 });
 function copyLink() {
   const url = planUrl();

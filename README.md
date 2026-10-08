@@ -23,4 +23,8 @@ public key in `index.html` cannot read or list plans directly.
   remove things and lock the plan. Don't post a plan link somewhere public.
 - **No accounts, so names are on trust.**
 - **Limits.** A plan holds up to 30 people, 30 ideas and 20 times.
+- **Plan details.** Once a plan is locked in, the group can add where it is,
+  say who is in or out, list what each person is bringing, split a cost, and
+  save the plan to a phone calendar. These use the same three database
+  functions, so the database setup did not change.
 - **No payments yet.** Nothing in the app is paid or locked.
